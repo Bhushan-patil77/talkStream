@@ -8,18 +8,14 @@ const socketIo = require('socket.io');
 const { Server } = require('socket.io');
 const cors = require('cors');
 require('dotenv').config();
-const path = require('path')
-const { fileURLToPath } = require('url')
-
-
 
 
 
 
 
 // 2. Initialize environment variables
-const PORT = process.env.PORT || 5000;
-const DB_URL = process.env.DB_URL;
+const PORT = 8080 || 5000;
+const DB_URL = 'mongodb+srv://bhushanravindrapatil77:iGA2Yuhg5626aHr7@cluster0.ap69s.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0';
 
 // 3. Create app object
 const app = express();
@@ -32,25 +28,17 @@ app.use(express.urlencoded({ extended: true })); // to parse URL-encoded request
 
 app.use(cors({
   origin: '*', // your frontend origin
-
+  
 }));
 const io = new Server(server, {
   cors: {
-    origin: '*', // Allow all origins
+      origin: '*', // Allow all origins
   },
 });
 
 // 5. Define routes
 const userRoutes = require('./routes/userRoutes');
 app.use('/', userRoutes);
-
-
-
-app.use(express.static(path.join(__dirname, '/client/build')))
-
-app.get('*', (req, res) => res.sendFile(path.join(__dirname, '/client/build/index.html')))
-
-
 
 // Track online users
 const onlineUsers = {};
@@ -62,7 +50,7 @@ io.on('connection', (socket) => {
     onlineUsers[userId] = socketId; // Store userId and socketId
     io.emit('getOnlineUsers', onlineUsers); // Emit updated list to all clients
 
-    const { acknowledged, modifiedCount } = await userModel.updateOne({ _id: userId }, { $set: { socketId: socketId, status: 'online' } });
+    const { acknowledged, modifiedCount } = await userModel.updateOne({ _id: userId }, { $set: { socketId: socketId, status:'online' } });
     if (acknowledged && modifiedCount) {
       socket.emit('isUpdated', true);
     }
@@ -80,27 +68,27 @@ io.on('connection', (socket) => {
     socket.to(msgObject.toSocket).emit('receiveMessage', newMsg);
   });
 
-  socket.on('getClickedUser', async ({ username }) => {
-
-    const user = await userModel.find({ username: username })
-    if (user) { socket.emit('getClickedUserResponse', user) }
+  socket.on('getClickedUser', async ({username})=>{
+    
+    const user = await userModel.find({username:username})
+    if(user){socket.emit('getClickedUserResponse', user)}
   })
-
-  socket.on('getPreviousMessages', async ({ senderId, receiverId }) => {
-    try {
-      // Query messages where either user is the sender or receiver
-      const previousMessages = await messageModel.find({
-        $or: [
-          { 'sender.userId': senderId, 'receiver.userId': receiverId },
-          { 'sender.userId': receiverId, 'receiver.userId': senderId }
-        ]
-      }).sort({ _id: 1 }); // Sort by ID to get messages in order of creation (or use timestamp if available)
-      // Emit the messages back to the client
-      socket.emit('previousMessages', previousMessages);
-    } catch (error) {
-      console.error('Error fetching messages:', error);
-      socket.emit('error', { message: 'Unable to retrieve messages' });
-    }
+ 
+    socket.on('getPreviousMessages', async ({ senderId, receiverId }) => {
+      try {
+          // Query messages where either user is the sender or receiver
+          const previousMessages = await messageModel.find({
+            $or: [
+              { 'sender.userId': senderId, 'receiver.userId': receiverId },
+              { 'sender.userId': receiverId, 'receiver.userId': senderId }
+            ]
+          }).sort({ _id: 1 }); // Sort by ID to get messages in order of creation (or use timestamp if available)
+          // Emit the messages back to the client
+          socket.emit('previousMessages', previousMessages);
+      } catch (error) {
+          console.error('Error fetching messages:', error);
+          socket.emit('error', { message: 'Unable to retrieve messages' });
+      }
   });
 
 
@@ -110,11 +98,11 @@ io.on('connection', (socket) => {
   // Handle disconnection
   socket.on('disconnect', async () => {
     const disconnectedUser = Object.keys(onlineUsers).find(userId => onlineUsers[userId] === socket.id);
-
+    
     if (disconnectedUser) {
       delete onlineUsers[disconnectedUser];
       io.emit('getOnlineUsers', onlineUsers); // Emit updated list to all clients
-      await userModel.updateOne({ socketId: socket.id }, { $set: { socketId: '', status: 'offline' } });
+      await userModel.updateOne({ socketId: socket.id }, { $set: { socketId:'', status:'offline' } });
     }
   });
 });
@@ -128,3 +116,4 @@ mongoose.connect(DB_URL).then(() => {
 }).catch((err) => {
   console.log('Something went wrong', err);
 });
+  
